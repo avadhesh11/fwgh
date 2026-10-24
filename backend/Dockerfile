@@ -23,7 +23,7 @@ EXPOSE 8000
 
 # Container healthcheck using Python urllib to avoid curl dependency and verify dataset loading
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request, json; res = urllib.request.urlopen('http://127.0.0.1:8000/api/health'); exit(0 if (res.status == 200 and json.loads(res.read()).get('data_loaded') is True) else 1)"
+  CMD python -c "import urllib.request, json, os; port = os.environ.get('PORT', '8000'); res = urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health'); exit(0 if (res.status == 200 and json.loads(res.read()).get('data_loaded') is True) else 1)"
 
-# Start uvicorn server bound to 0.0.0.0
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start uvicorn server listening on configured PORT with fallback to 8000
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -12,6 +12,7 @@ class Settings:
     PROJECT_NAME: str = "Wind Forecast Decision Portal API"
     VERSION: str = "1.0.0"
     API_PREFIX: str = "/api"
+    PORT: int = int(os.environ.get("PORT", "8000"))
     
     # Scope defaults
     DEFAULT_SCOPE: str = "B"

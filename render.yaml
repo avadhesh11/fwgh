@@ -10,8 +10,8 @@ services:
   - type: web
     name: gridbricks-backend
     runtime: docker
-    dockerContext: ./fwgh/backend
-    dockerfilePath: ./fwgh/backend/Dockerfile
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
     plan: free
     healthCheckPath: /api/health
     envVars:
@@ -20,7 +20,7 @@ services:
       - key: DATA_DIR
         value: "/app/data"
       - key: CORS_ORIGINS
-        value: "http://localhost:5173,http://localhost:80,https://gridbricks-frontend.onrender.com"
+        value: "*"
 
   # ----------------------------------------------------------------------------
   # React + Nginx Frontend Service
@@ -28,13 +28,10 @@ services:
   - type: web
     name: gridbricks-frontend
     runtime: docker
-    dockerContext: ./fwgh/frontend
-    dockerfilePath: ./fwgh/frontend/Dockerfile
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
     plan: free
     healthCheckPath: /healthz
-    dockerBuildArgs:
-      - key: VITE_API_BASE_URL
-        value: "https://gridbricks-backend.onrender.com/api"
     envVars:
       - key: VITE_API_BASE_URL
         value: "https://gridbricks-backend.onrender.com/api"
