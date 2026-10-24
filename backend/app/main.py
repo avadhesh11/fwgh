@@ -42,13 +42,14 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"detail": "An unexpected internal server error occurred."}
     )
 
-# Enable CORS for frontend applications with explicit origins
+# Enable CORS for frontend applications with explicit origins and Vercel domains
 cors_origins = settings.CORS_ORIGINS
 allow_creds = False if "*" in cors_origins else True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=allow_creds,
     allow_methods=["*"],
     allow_headers=["*"],

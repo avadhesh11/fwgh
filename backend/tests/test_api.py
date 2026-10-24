@@ -554,3 +554,26 @@ def test_unhandled_exception_returns_json_500(monkeypatch):
     data = resp.json()
     assert data == {"detail": "An unexpected internal server error occurred."}
 
+
+def test_cors_vercel_origins():
+    """Verify Vercel deployments (*.vercel.app) pass CORS preflight and request headers."""
+    # Preflight OPTIONS request
+    preflight_resp = client.options(
+        "/api/health",
+        headers={
+            "Origin": "https://gridbricks-portal.vercel.app",
+            "Access-Control-Request-Method": "GET",
+        }
+    )
+    assert preflight_resp.status_code == 200
+    assert preflight_resp.headers.get("access-control-allow-origin") == "https://gridbricks-portal.vercel.app"
+
+    # Actual GET request with Origin
+    get_resp = client.get(
+        "/api/health",
+        headers={"Origin": "https://my-preview-abc123.vercel.app"}
+    )
+    assert get_resp.status_code == 200
+    assert get_resp.headers.get("access-control-allow-origin") == "https://my-preview-abc123.vercel.app"
+
+

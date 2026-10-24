@@ -16,12 +16,23 @@ import type {
 // Resolves API base URL:
 // 1. Runtime window injection (window.__APP_CONFIG__.API_BASE_URL) for zero-rebuild container deployments
 // 2. Build-time environment variable (import.meta.env.VITE_API_BASE_URL)
-// 3. Clean relative default ('/api') routed via production Nginx / Vite proxy (never defaults to localhost)
-const API_BASE_URL = (
-  (typeof window !== 'undefined' && (window as any).__APP_CONFIG__?.API_BASE_URL) ||
-  import.meta.env.VITE_API_BASE_URL ||
-  '/api'
-).replace(/\/+$/, '');
+// 3. Clean relative default ('/api') routed via production Nginx / Vercel rewrites / Vite proxy
+function resolveApiBaseUrl(): string {
+  const raw = (
+    (typeof window !== 'undefined' && (window as any).__APP_CONFIG__?.API_BASE_URL) ||
+    import.meta.env.VITE_API_BASE_URL ||
+    '/api'
+  ).trim().replace(/\/+$/, '');
+
+  if (!raw || raw === '/api') return '/api';
+  // Ensure absolute host URLs have the /api prefix expected by FastAPI router
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw.endsWith('/api') ? raw : `${raw}/api`;
+  }
+  return raw;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 function buildQueryString(params: FilterParams): string {
   const query = new URLSearchParams();
