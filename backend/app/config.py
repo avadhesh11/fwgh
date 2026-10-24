@@ -47,6 +47,7 @@ class Settings:
             "http://127.0.0.1:80",
             "http://localhost",
             "http://127.0.0.1",
+            "https://gridbricks-frontend.onrender.com",
         ]
 
     @classmethod

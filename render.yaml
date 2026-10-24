@@ -20,7 +20,7 @@ services:
       - key: DATA_DIR
         value: "/app/data"
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://gridbricks-frontend.onrender.com"
 
   # ----------------------------------------------------------------------------
   # React + Nginx Frontend Service

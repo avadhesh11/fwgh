@@ -6,11 +6,20 @@ Built with a **FastAPI** backend and a **React 19 + TypeScript + Vite** frontend
 
 ---
 
-## Live Demo
+## Live Deployment & Endpoints
 
-* **Live Demo URL**: `https://gridbricks.example.com` *(Deployment placeholder — to be updated upon live hosting)*
+### Production Deployment (Render)
+* **Live Frontend Portal**: [https://gridbricks-frontend.onrender.com/](https://gridbricks-frontend.onrender.com/)
+* **Backend Health Check**: [https://gridbricks-backend.onrender.com/api/health](https://gridbricks-backend.onrender.com/api/health)
+* **Interactive API Documentation (Swagger)**: [https://gridbricks-backend.onrender.com/docs](https://gridbricks-backend.onrender.com/docs)
+* **ReDoc Documentation**: [https://gridbricks-backend.onrender.com/redoc](https://gridbricks-backend.onrender.com/redoc)
+
+*(Note: In Render multi-service deployments, the backend URL is assigned by Render under the `gridbricks-backend` service. If custom domains or alternate service names are used in your Render account, verify the exact backend hostname in your Render Dashboard).*
+
+### Local Development Endpoints
+* **Frontend Portal**: `http://localhost:5173` (Vite dev server) or `http://localhost` (Docker Nginx)
 * **Backend Health Check**: `http://localhost:8000/api/health`
-* **Swagger API Docs**: `http://localhost:8000/docs`
+* **Local Swagger API Docs**: `http://localhost:8000/docs`
 
 ---
 
@@ -273,6 +282,13 @@ Type checks and bundles the client app cleanly into `dist/`.
 
 ---
 
-## 9. AI Tool Disclosure
+## AI Tools and Assistance
 
-AI development tools, including Antigravity, were used to assist with code implementation, debugging, testing, and documentation. The developer remains responsible for reviewing the implementation and validating the reported results.
+AI tools were used throughout the development of GridBricks to support research, technical discussions, implementation, and debugging.
+
+- **ChatGPT:** Used for discussing system design and technical approaches, understanding forecasting methodology, reviewing code, identifying potential bugs, suggesting improvements, and planning testing and deployment.
+- **Google Antigravity:** Used as an AI-assisted coding environment to accelerate code generation, implement changes, debug issues, and iterate on the application based on project requirements.
+
+The development process involved collaboration with AI tools for both implementation and code review. Test results and deployment behavior were used as available validation signals; however, not every code path or AI-generated change was independently verified manually.
+
+AI tools assisted the development process, and their suggestions may have limitations. The project's methodology, assumptions, evaluation results, and known limitations are documented separately.

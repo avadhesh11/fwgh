@@ -465,16 +465,45 @@ def test_cutoff_0400_never_selects_0430_on_real_data():
 
 def test_cors_headers_and_origin_policy():
     """Verify CORS middleware responds with explicit allowed origin and credentials appropriately."""
-    # Allowed origin request
+    # Local development allowed origin request
     resp = client.get("/api/health", headers={"Origin": "http://localhost:5173"})
     assert resp.status_code == 200
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:5173"
     assert resp.headers.get("access-control-allow-credentials") == "true"
 
+    # Production deployed frontend origin request
+    prod_resp = client.get("/api/health", headers={"Origin": "https://gridbricks-frontend.onrender.com"})
+    assert prod_resp.status_code == 200
+    assert prod_resp.headers.get("access-control-allow-origin") == "https://gridbricks-frontend.onrender.com"
+    assert prod_resp.headers.get("access-control-allow-credentials") == "true"
+
     # Disallowed origin should not be reflected
     disallowed_resp = client.get("/api/health", headers={"Origin": "http://evil-unauthorized-domain.com"})
     assert disallowed_resp.status_code == 200
     assert disallowed_resp.headers.get("access-control-allow-origin") is None
+
+    # Preflight request from production frontend
+    preflight_resp = client.options(
+        "/api/metrics",
+        headers={
+            "Origin": "https://gridbricks-frontend.onrender.com",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Accept",
+        }
+    )
+    assert preflight_resp.status_code == 200
+    assert preflight_resp.headers.get("access-control-allow-origin") == "https://gridbricks-frontend.onrender.com"
+    assert "GET" in preflight_resp.headers.get("access-control-allow-methods", "")
+
+    # Preflight request from unauthorized origin
+    bad_preflight = client.options(
+        "/api/metrics",
+        headers={
+            "Origin": "http://malicious-site.com",
+            "Access-Control-Request-Method": "GET",
+        }
+    )
+    assert bad_preflight.headers.get("access-control-allow-origin") is None
 
 
 def test_health_dataset_failure(monkeypatch):
