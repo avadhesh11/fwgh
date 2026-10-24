@@ -79,7 +79,7 @@ All raw market data originates from official **Elexon BMRS** API streams:
 ### C. Forecast Vintage & Cutoff Decision Rule
 * In day-ahead electricity markets, trading decisions are finalized by a cutoff time on Day $D-1$.
 * **Vintage Eligibility Rule**: For target delivery date $D$, only forecasts published on Day $D-1$ strictly at or before the decision cutoff are eligible:
-  $$\text{publishTime} \le \text{cutoff\_datetime}_{D-1}$$
+  $$\text{publishTime} \le \text{cutoff time}_{D-1}$$
 * Out of all eligible forecasts, the **latest published forecast** is selected to reflect the most current information available to the decision-maker.
 * Forecasts published after the cutoff time are strictly rejected.
 
@@ -135,7 +135,7 @@ The repository contains validated, locally cached JSON datasets in `backend/data
 
 ### 3.1 Forecast-Horizon Operational Lead-Time Analysis
 
-In electricity market operations, grouping observations purely by unrounded raw lead time or delivery hour conflates diurnal intra-day patterns with forecast horizon effects. Under a fixed cutoff, $\text{lead\_time} = \text{base\_offset} + \text{hour\_of\_day}$, making a point-by-point lead-time curve identical to a shifted diurnal error curve.
+In electricity market operations, grouping observations purely by unrounded raw lead time or delivery hour conflates diurnal intra-day patterns with forecast horizon effects. Under a fixed cutoff, $\text{lead time} = \text{base offset} + \text{hour of day}$, making a point-by-point lead-time curve identical to a shifted diurnal error curve.
 
 To provide meaningful decision support across decision stages, forecast error is evaluated across **7 defined operational lead-time horizon buckets**:
 

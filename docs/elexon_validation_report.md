@@ -127,7 +127,7 @@ $$\text{Error}_{\text{Hour } h} = \text{Forecast}_{\text{Hour } h} - \text{Actua
 In earlier drafting, the narrative cited a theoretical "08:30" publication example from Swagger documentation, while reporting a 16.5-hour lead time. This has been audited and resolved:
 - **Observed Publication Cadence**: In January 2026, the morning WINDFOR forecast runs published prior to the 09:00 UK cutoff were published at **07:30:00 UTC** across **100% of delivery days** (744 out of 744 intervals).
 - **Lead Time Formula**:
-  $$\text{lead\_time\_hours} = \frac{(T_{\text{target\_startTime}} - T_{\text{publishTime}}).\text{total\_seconds}()}{3600}$$
+  $$\text{Lead Time (hours)} = \frac{T_{\text{target start}} - T_{\text{publishTime}}}{3600\text{ seconds}}$$
 - **Exact Derivation for Delivery Day $D$**:
   - Hour 00:00: `(D 00:00:00Z - (D-1) 07:30:00Z) = 16.5 hours`.
   - Hour 01:00: `(D 01:00:00Z - (D-1) 07:30:00Z) = 17.5 hours`.
@@ -209,7 +209,7 @@ The test suite in [`backend/tests/test_alignment.py`](../backend/tests/test_alig
 ### 7.1 Problem with Unbinned Horizon Measurements
 Under fixed Day $D-1$ cutoff rules (e.g. 09:00 UK), the selected forecast for every settlement period of Day $D$ is published at the exact same publication run (`07:30 UTC`).
 Consequently:
-$$\text{lead\_time\_hours} = 16.5 + \text{hour\_of\_day}$$
+$$\text{lead time hours} = 16.5 + \text{hour of day}$$
 Evaluating error by exact unrounded lead time produced 24 distinct points that were mathematically identical to the diurnal hour-of-day curve shifted by 16.5 hours.
 
 ### 7.2 Operational Bucket Architecture
