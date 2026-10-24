@@ -1,0 +1,40 @@
+# ==============================================================================
+# Render Blueprint Specification for GridBricks Wind Forecast Decision Portal
+# Docs: https://render.com/docs/blueprint-spec
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # FastAPI Backend Service
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: gridbricks-backend
+    runtime: docker
+    dockerContext: ./fwgh/backend
+    dockerfilePath: ./fwgh/backend/Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DATA_DIR
+        value: "/app/data"
+      - key: CORS_ORIGINS
+        value: "http://localhost:5173,http://localhost:80,https://gridbricks-frontend.onrender.com"
+
+  # ----------------------------------------------------------------------------
+  # React + Nginx Frontend Service
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: gridbricks-frontend
+    runtime: docker
+    dockerContext: ./fwgh/frontend
+    dockerfilePath: ./fwgh/frontend/Dockerfile
+    plan: free
+    healthCheckPath: /healthz
+    dockerBuildArgs:
+      - key: VITE_API_BASE_URL
+        value: "https://gridbricks-backend.onrender.com/api"
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: "https://gridbricks-backend.onrender.com/api"

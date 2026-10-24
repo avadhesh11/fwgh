@@ -193,7 +193,64 @@ The test suite in [`backend/tests/test_alignment.py`](../backend/tests/test_alig
 5. `test_windfor_conflicting_values_raises_integrity_error`: Asserts `DataIntegrityError` on conflicting forecast values.
 6. `test_lead_time_calculation_reconciled`: Asserts exact dynamic derivation of 16.5h, 39.5h, and 28.0h mean from UTC timestamps.
 7. `test_cutoff_decision_latest_eligible_forecast`: Asserts strict 09:00 D-1 cutoff eligibility.
-8. `test_missing_records_not_treated_as_zero`: Confirms missing intervals are excluded from error averages and penalize coverage.
-9. `test_error_sign_convention`: Confirms $F - A$ convention (+500 MW for overforecast, -300 MW for underforecast).
+8. `test_strict_cutoff_boundary_and_post_cutoff_rejection`: Asserts inclusive cutoff boundary and post-cutoff rejection.
+9. `test_missing_records_not_treated_as_zero`: Confirms missing intervals are excluded from error averages and penalize coverage.
+10. `test_error_sign_convention`: Confirms $F - A$ convention (+500 MW for overforecast, -300 MW for underforecast).
+11. `test_zero_matched_intervals_returns_none_metrics`: Asserts None metrics when matched count is zero.
+12. `test_forecast_vintage_rule_enforcement`: Asserts D-1 publication eligibility rule.
+13. `test_missing_data_counters_independent`: Confirms independent missing-forecast and missing-actual counters.
+14. `test_compute_error_by_horizon_buckets`: Validates 7 operational lead-time buckets, boundary conditions, empty bucket handling, and metrics.
+15. `test_bias_positive_negative_interpretation`: Proves signed bias calculations for over- and underforecasting.
 
-All 9 tests pass with 100% success rate.
+---
+
+## 7. Phase 2: Operational Lead-Time Horizon Analysis
+
+### 7.1 Problem with Unbinned Horizon Measurements
+Under fixed Day $D-1$ cutoff rules (e.g. 09:00 UK), the selected forecast for every settlement period of Day $D$ is published at the exact same publication run (`07:30 UTC`).
+Consequently:
+$$\text{lead\_time\_hours} = 16.5 + \text{hour\_of\_day}$$
+Evaluating error by exact unrounded lead time produced 24 distinct points that were mathematically identical to the diurnal hour-of-day curve shifted by 16.5 hours.
+
+### 7.2 Operational Bucket Architecture
+To make horizon analysis operationally meaningful, forecasts are grouped into **7 defined operational intervals**:
+
+$$\text{Lead Time (hours)} = \frac{\text{startTime} - \text{publishTime}}{3600\text{ seconds}}$$
+
+| Bucket Label | Lead-Time Range $[h_{\min}, h_{\max})$ | Operational Horizon | Scope B (09:00 Cutoff) Obs | Scope B MAE (MW) | Scope B Bias (MW) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `< 12h` | $[0.0, 12.0)$ hours | Intraday / Short-range gate closure | 0 *(Empty at D-1)* | *None* | *None* |
+| `12–18h` | $[12.0, 18.0)$ hours | Early morning delivery (00:00–02:00) | 62 | 2,098.40 | +2,043.01 |
+| `18–24h` | $[18.0, 24.0)$ hours | Morning peak & day hours (02:00–08:00) | 186 | 2,359.13 | +2,286.58 |
+| `24–30h` | $[24.0, 30.0)$ hours | Midday solar/wind blend (08:00–14:00) | 186 | 1,965.71 | +1,629.65 |
+| `30–36h` | $[30.0, 36.0)$ hours | Afternoon / evening peak (14:00–20:00) | 186 | 1,900.66 | +1,322.53 |
+| `36–42h` | $[36.0, 42.0)$ hours | Late night delivery (20:00–24:00) | 124 | 1,846.03 | +1,607.67 |
+| `≥ 42h` | $[42.0, 100.0)$ hours | Multi-day forward planning horizon | 0 *(Empty at D-1 09:00)* | *None* | *None* |
+
+*Empty Bucket Treatment*: Buckets without observations return `count = 0` and `None` (`null`) for all error metrics. They are visually indicated on the UI without fabricating zero error.
+
+---
+
+## 8. Phase 2: Empirical Bias Investigation & Decision Support
+
+### 8.1 Empirical Reproduction
+Under the standard Scope B benchmark (Jan 2 to Feb 1, 2026, 09:00 UK cutoff):
+- **Actual Generation Mean**: `11,283.56 MW`
+- **Forecast Generation Mean**: `13,031.44 MW`
+- **Mean Signed Bias**: `+1,747.89 MW` (+15.49% relative to mean actual generation)
+- **Sign Convention**: $\text{Error} = \text{Forecast} - \text{Actual}$. Positive bias indicates overforecasting.
+
+### 8.2 Empirical Multi-Dimensional Breakdown
+1. **Directional Persistence**: 632 of 744 hours (84.9%) were overforecast.
+2. **Daily Persistence**: 27 of 31 days (87.1%) exhibited positive net daily bias.
+3. **Diurnal Pattern**: Overnight hours exhibit the highest bias, peaking at `+2,334.60 MW` at 04:00 UTC (SPs 9–10) and reaching a low of `+1,303.29 MW` at 16:00 UTC (SPs 33–34).
+4. **Horizon Persistence**: Positive bias remains high across all lead times (+1,322 MW to +2,286 MW).
+
+### 8.3 Data-Supported Facts vs Unverified Hypotheses
+- **What is proven**: Forecasts consistently overpredicted metered outturn in January 2026.
+- **What is unproven (cautious interpretation)**:
+  - *NWP model wind speed bias*: Weather models may overpredict sustained boundary-layer winds.
+  - *Transmission constraint curtailment*: National Grid ESO regularly curtails Scottish and northern wind generation via Balancing Mechanism Bid-Offer Acceptances (BOAs). `FUELHH` records the curtailed generation, while `WINDFOR` reflects unconstrained potential. Since BOA logs are not included in this dataset, curtailment volume cannot be proved from the cached files.
+  - *Capacity scope mismatch*: Differences between transmission-connected wind farms in `FUELHH` and embedded generation assumptions in `WINDFOR`.
+- **Operational Recommendation**: Do not apply flat bias subtraction or alter raw records. Cashout imbalance risk is asymmetric, and artificial deductions without balancing data distort bidding strategies.
+

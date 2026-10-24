@@ -170,6 +170,8 @@ def test_empty_results_and_coverage():
     m = resp.json()
     assert m["expected_intervals"] == 24
     assert m["matched_intervals"] == 0
+    assert m["missing_forecasts"] == 24
+    assert m["missing_actuals"] == 24
     assert m["coverage_pct"] == 0.0
     assert m["mae_mw"] is None
     assert m["rmse_mw"] is None
@@ -184,17 +186,50 @@ def test_empty_results_and_coverage():
 
 
 def test_error_by_horizon_endpoint():
-    """Verify /api/error-by-horizon returns lead time grouped statistics."""
+    """Verify /api/error-by-horizon returns operational lead-time bucket statistics."""
     fuelhh, windfor = create_deterministic_fixtures()
     set_cached_data(fuelhh=fuelhh, windfor=windfor)
 
     resp = client.get("/api/error-by-horizon?start_date=2026-01-02&end_date=2026-01-02")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 24  # 24 distinct lead times from 16.5 to 39.5
-    assert data[0]["lead_time_hours"] == 16.5
-    assert data[0]["count"] == 1
-    assert data[0]["mae_mw"] == 2000.0
+    # 7 defined operational horizon buckets: < 12h, 12–18h, 18–24h, 24–30h, 30–36h, 36–42h, ≥ 42h
+    assert len(data) == 7
+    bucket_map = {item["horizon_bucket"]: item for item in data}
+
+    # Empty buckets at 09:00 cutoff for a single delivery day (lead times 16.5 to 39.5)
+    assert "< 12h" in bucket_map
+    assert bucket_map["< 12h"]["count"] == 0
+    assert bucket_map["< 12h"]["mae_mw"] is None
+    assert bucket_map["< 12h"]["bias_mw"] is None
+
+    assert "≥ 42h" in bucket_map
+    assert bucket_map["≥ 42h"]["count"] == 0
+    assert bucket_map["≥ 42h"]["mae_mw"] is None
+
+    # Populated buckets
+    assert "12–18h" in bucket_map
+    assert bucket_map["12–18h"]["count"] == 2  # hours 0 and 1 (16.5h, 17.5h)
+    assert bucket_map["12–18h"]["mae_mw"] == 2000.0
+    assert bucket_map["12–18h"]["bias_mw"] == 2000.0
+    assert bucket_map["12–18h"]["avg_lead_time_hours"] == 17.0
+
+    assert "18–24h" in bucket_map
+    assert bucket_map["18–24h"]["count"] == 6  # hours 2 to 7 (18.5h to 23.5h)
+    assert bucket_map["18–24h"]["mae_mw"] == 2000.0
+
+    assert "24–30h" in bucket_map
+    assert bucket_map["24–30h"]["count"] == 6  # hours 8 to 13
+    assert bucket_map["24–30h"]["mae_mw"] == 2000.0
+
+    assert "30–36h" in bucket_map
+    assert bucket_map["30–36h"]["count"] == 6  # hours 14 to 19
+    assert bucket_map["30–36h"]["mae_mw"] == 2000.0
+
+    assert "36–42h" in bucket_map
+    assert bucket_map["36–42h"]["count"] == 4  # hours 20 to 23 (36.5h to 39.5h)
+    assert bucket_map["36–42h"]["mae_mw"] == 2000.0
+
 
 
 def test_error_by_hour_endpoint():
@@ -440,3 +475,53 @@ def test_cors_headers_and_origin_policy():
     disallowed_resp = client.get("/api/health", headers={"Origin": "http://evil-unauthorized-domain.com"})
     assert disallowed_resp.status_code == 200
     assert disallowed_resp.headers.get("access-control-allow-origin") is None
+
+
+def test_health_dataset_failure(monkeypatch):
+    """Verify /api/health accurately reports failure when WINDFOR fails to load."""
+    def mock_fail_windfor(*args, **kwargs):
+        raise FileNotFoundError("Simulated dataset missing")
+
+    monkeypatch.setattr("app.api.endpoints.load_windfor_data", mock_fail_windfor)
+    monkeypatch.setattr("app.api.endpoints.load_fuelhh_data", lambda: [{"sample": 1}])
+
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "unhealthy"
+    assert data["data_loaded"] is False
+    assert data["windfor_records"] == 0
+    assert data["fuelhh_records"] == 1
+    assert "WINDFOR" in data["message"]
+
+
+def test_health_both_datasets_failed(monkeypatch):
+    """Verify /api/health returns unhealthy and diagnostic message when both datasets fail."""
+    def mock_fail(*args, **kwargs):
+        raise RuntimeError("Load error")
+
+    monkeypatch.setattr("app.api.endpoints.load_fuelhh_data", mock_fail)
+    monkeypatch.setattr("app.api.endpoints.load_windfor_data", mock_fail)
+
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "unhealthy"
+    assert data["data_loaded"] is False
+    assert "FUELHH and WINDFOR" in data["message"]
+
+
+def test_unhandled_exception_returns_json_500(monkeypatch):
+    """Verify unexpected backend exceptions return consistent JSON 500 error."""
+    def mock_error(*args, **kwargs):
+        raise ValueError("Unexpected runtime fault")
+
+    monkeypatch.setattr("app.api.endpoints.resolve_and_validate_params", mock_error)
+
+    err_client = TestClient(app, raise_server_exceptions=False)
+    resp = err_client.get("/api/metrics")
+    assert resp.status_code == 500
+    assert resp.headers["content-type"].startswith("application/json")
+    data = resp.json()
+    assert data == {"detail": "An unexpected internal server error occurred."}
+

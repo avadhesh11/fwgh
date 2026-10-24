@@ -222,15 +222,21 @@ def filter_and_select_forecasts(
     cutoff_time: datetime
 ) -> Optional[Dict[str, Any]]:
     """
-    Select the latest eligible WINDFOR forecast for target_start_time
-    satisfying publishTime <= cutoff_time.
+    Select the latest eligible WINDFOR forecast for target_start_time.
+    Enforces that eligible forecasts must be published on Day D-1 and strictly
+    at or before the cutoff time (d_minus_1_start <= publishTime <= cutoff_time).
     """
+    target_d = target_start_time.date()
+    prev_d = target_d - timedelta(days=1)
+    tz = cutoff_time.tzinfo or target_start_time.tzinfo
+    d_minus_1_start = datetime(prev_d.year, prev_d.month, prev_d.day, 0, 0, 0, tzinfo=tz)
+
     eligible = []
     for r in windfor_records:
         st = parse_iso_datetime(r["startTime"])
         if st == target_start_time:
             pt = parse_iso_datetime(r["publishTime"])
-            if pt <= cutoff_time:
+            if d_minus_1_start <= pt <= cutoff_time:
                 eligible.append((pt, r))
 
     if not eligible:
@@ -254,6 +260,7 @@ def match_forecasts_and_actuals(
     
     Decision cutoff: (Delivery Date - 1 day) at cutoff_hour_uk:cutoff_minute_uk UK local time.
     For January (GMT = UTC+0), UK local time is equivalent to UTC.
+    Only forecasts published on Day D-1 and at or before the decision cutoff are eligible.
     """
     # 1. Deduplicate & validate WINDFOR
     validated_windfor = validate_and_deduplicate_windfor(windfor_records)
@@ -288,19 +295,25 @@ def match_forecasts_and_actuals(
         deliv_date = target_st.date()
         # Cutoff is on day D - 1 day at cutoff_hour_uk:cutoff_minute_uk
         prev_day = deliv_date - timedelta(days=1)
+        d_minus_1_start = datetime(prev_day.year, prev_day.month, prev_day.day, 0, 0, 0, tzinfo=utc_tz)
         cutoff_dt = datetime(prev_day.year, prev_day.month, prev_day.day, cutoff_hour_uk, cutoff_minute_uk, tzinfo=utc_tz)
 
-        # Retrieve eligible forecast vintages (publishTime <= cutoff_dt)
+        # Retrieve eligible forecast vintages (must be published on Day D-1 and publishTime <= cutoff_dt)
         candidates = wf_by_target.get(target_st, [])
-        eligible = [c for c in candidates if c[0] <= cutoff_dt]
+        eligible = [c for c in candidates if d_minus_1_start <= c[0] <= cutoff_dt]
 
+        has_forecast = len(eligible) > 0
         actual_rec = hourly_actuals.get(target_st)
+        has_actual = (actual_rec is not None and actual_rec.generation_mw is not None)
 
-        if not eligible:
+        # Independent calculation of missing-data conditions for every expected interval
+        if not has_forecast:
             missing_forecasts += 1
-            continue
-        if actual_rec is None or actual_rec.generation_mw is None:
+        if not has_actual:
             missing_actuals += 1
+
+        # Only add interval to matched results when both forecast and complete actual are available
+        if not (has_forecast and has_actual):
             continue
 
         latest_pt, latest_rec = eligible[-1]
@@ -361,31 +374,69 @@ def match_forecasts_and_actuals(
     return matched_list, metrics
 
 
+HORIZON_BUCKET_DEFINITIONS: List[Dict[str, Any]] = [
+    {"label": "< 12h", "min_h": 0.0, "max_h": 12.0},
+    {"label": "12–18h", "min_h": 12.0, "max_h": 18.0},
+    {"label": "18–24h", "min_h": 18.0, "max_h": 24.0},
+    {"label": "24–30h", "min_h": 24.0, "max_h": 30.0},
+    {"label": "30–36h", "min_h": 30.0, "max_h": 36.0},
+    {"label": "36–42h", "min_h": 36.0, "max_h": 42.0},
+    {"label": "≥ 42h", "min_h": 42.0, "max_h": 100.0},
+]
+
+
 def compute_error_by_horizon(matched_list: List[MatchedForecastActual]) -> List[Dict[str, Any]]:
-    """Group errors by forecast lead time horizon."""
-    grouped: Dict[float, List[MatchedForecastActual]] = defaultdict(list)
-    for m in matched_list:
-        grouped[round(m.lead_time_hours, 2)].append(m)
-
+    """
+    Group errors by defined operational lead-time horizon buckets.
+    Lead time is derived as: (target_startTime - publishTime).total_seconds() / 3600.
+    Handles empty buckets by returning count=0 and None for error metrics.
+    """
     results: List[Dict[str, Any]] = []
-    for lt in sorted(grouped.keys()):
-        items = grouped[lt]
-        errors = [m.error_mw for m in items]
-        abs_errors = [abs(e) for e in errors]
-        fcs = [m.forecast_mw for m in items]
-        acts = [m.actual_mw for m in items]
 
-        results.append({
-            "lead_time_hours": lt,
-            "count": len(items),
-            "avg_forecast_mw": round(float(sum(fcs) / len(fcs)), 2),
-            "avg_actual_mw": round(float(sum(acts) / len(acts)), 2),
-            "mae_mw": round(float(sum(abs_errors) / len(abs_errors)), 2),
-            "rmse_mw": round(float(math.sqrt(sum(e**2 for e in errors) / len(errors))), 2),
-            "bias_mw": round(float(sum(errors) / len(errors)), 2),
-            "p90_abs_error_mw": round(float(np.percentile(abs_errors, 90)), 2),
-            "max_abs_error_mw": round(float(max(abs_errors)), 2),
-        })
+    for b in HORIZON_BUCKET_DEFINITIONS:
+        min_h = float(b["min_h"])
+        max_h = float(b["max_h"])
+        items = [m for m in matched_list if min_h <= m.lead_time_hours < max_h]
+
+        if items:
+            errors = [m.error_mw for m in items]
+            abs_errors = [abs(e) for e in errors]
+            fcs = [m.forecast_mw for m in items]
+            acts = [m.actual_mw for m in items]
+            lts = [m.lead_time_hours for m in items]
+            avg_lt = round(float(sum(lts) / len(lts)), 2)
+
+            results.append({
+                "horizon_bucket": b["label"],
+                "min_lead_time_hours": min_h,
+                "max_lead_time_hours": max_h,
+                "count": len(items),
+                "lead_time_hours": avg_lt,
+                "avg_lead_time_hours": avg_lt,
+                "avg_forecast_mw": round(float(sum(fcs) / len(fcs)), 2),
+                "avg_actual_mw": round(float(sum(acts) / len(acts)), 2),
+                "mae_mw": round(float(sum(abs_errors) / len(abs_errors)), 2),
+                "rmse_mw": round(float(math.sqrt(sum(e**2 for e in errors) / len(errors))), 2),
+                "bias_mw": round(float(sum(errors) / len(errors)), 2),
+                "p90_abs_error_mw": round(float(np.percentile(abs_errors, 90)), 2),
+                "max_abs_error_mw": round(float(max(abs_errors)), 2),
+            })
+        else:
+            results.append({
+                "horizon_bucket": b["label"],
+                "min_lead_time_hours": min_h,
+                "max_lead_time_hours": max_h,
+                "count": 0,
+                "lead_time_hours": None,
+                "avg_lead_time_hours": None,
+                "avg_forecast_mw": None,
+                "avg_actual_mw": None,
+                "mae_mw": None,
+                "rmse_mw": None,
+                "bias_mw": None,
+                "p90_abs_error_mw": None,
+                "max_abs_error_mw": None,
+            })
 
     return results
 

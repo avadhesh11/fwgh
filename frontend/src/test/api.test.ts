@@ -70,4 +70,25 @@ describe('apiService', () => {
       .rejects
       .toThrow('Invalid cutoff format');
   });
+
+  it('provides a user-friendly error message when backend is unreachable', async () => {
+    (fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await expect(apiService.getHealth())
+      .rejects
+      .toThrow(/Unable to connect to backend service/);
+  });
+
+  it('provides a descriptive error message when server returns 500 without detail', async () => {
+    (fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: async () => { throw new Error('No json'); },
+    });
+
+    await expect(apiService.getHealth())
+      .rejects
+      .toThrow('Internal server error occurred while processing request.');
+  });
 });

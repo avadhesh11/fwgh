@@ -35,23 +35,47 @@ function buildQueryString(params: FilterParams): string {
 
 async function fetchJson<T>(endpoint: string, signal?: AbortSignal): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal,
+    });
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') {
+      throw err;
+    }
+    throw new Error(
+      `Unable to connect to backend service (${err.message || 'network connection error'}). Please ensure the API server is reachable.`
+    );
+  }
 
   if (!response.ok) {
-    let errorDetail = `HTTP ${response.status} ${response.statusText}`;
+    let errorDetail = '';
     try {
       const errorJson = await response.json();
-      if (errorJson.detail) {
-        errorDetail = typeof errorJson.detail === 'string' ? errorJson.detail : JSON.stringify(errorJson.detail);
+      if (errorJson && errorJson.detail) {
+        errorDetail = typeof errorJson.detail === 'string'
+          ? errorJson.detail
+          : JSON.stringify(errorJson.detail);
       }
     } catch {
       // ignore json parse failure on error body
+    }
+
+    if (!errorDetail) {
+      if (response.status === 500) {
+        errorDetail = 'Internal server error occurred while processing request.';
+      } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+        errorDetail = `Backend service unavailable (HTTP ${response.status}).`;
+      } else if (response.status === 404) {
+        errorDetail = `Requested endpoint '${endpoint}' was not found.`;
+      } else {
+        errorDetail = `HTTP ${response.status} ${response.statusText}`;
+      }
     }
     throw new Error(errorDetail);
   }

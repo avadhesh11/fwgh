@@ -20,6 +20,8 @@ from app.services.alignment import (
     aggregate_fuelhh_to_hourly,
     filter_and_select_forecasts,
     match_forecasts_and_actuals,
+    compute_error_by_horizon,
+    HORIZON_BUCKET_DEFINITIONS,
     validate_and_deduplicate_fuelhh,
     validate_and_deduplicate_windfor,
     DataIntegrityError,
@@ -270,8 +272,8 @@ def test_error_sign_convention():
 
 def test_zero_matched_intervals_returns_none_metrics():
     """
-    Verify that zero matched intervals return coverage 0.0% and None for undefined metrics
-    (MAE, RMSE, Bias, Percentiles, lead times).
+    Verify that zero matched intervals return coverage 0.0%, 24 missing forecasts,
+    24 missing actuals (independent counters), and None for undefined metrics.
     """
     deliv_date = date(2026, 1, 2)
     matched, metrics = match_forecasts_and_actuals(
@@ -285,7 +287,7 @@ def test_zero_matched_intervals_returns_none_metrics():
     assert metrics.expected_intervals == 24
     assert metrics.matched_intervals == 0
     assert metrics.missing_forecasts == 24
-    assert metrics.missing_actuals == 0
+    assert metrics.missing_actuals == 24
     assert metrics.coverage_pct == 0.0
     assert metrics.mae_mw is None
     assert metrics.rmse_mw is None
@@ -297,4 +299,255 @@ def test_zero_matched_intervals_returns_none_metrics():
     assert metrics.min_lead_time_hours is None
     assert metrics.max_lead_time_hours is None
     assert metrics.avg_lead_time_hours is None
+
+
+def test_forecast_vintage_rule_enforcement():
+    """
+    Verify that only forecasts published on Day D-1 and at or before decision cutoff are eligible:
+    - Pre-D-1 forecast (published on D-2) is rejected.
+    - D-1 forecast before cutoff is eligible.
+    - D-1 forecast at exact cutoff boundary is eligible (inclusive).
+    - D-1 post-cutoff forecast is rejected.
+    - Day D forecast is rejected.
+    """
+    target_st = parse_iso_datetime("2026-01-02T12:00:00Z")  # Delivery Day D = 2026-01-02
+    cutoff = parse_iso_datetime("2026-01-01T09:00:00Z")     # Cutoff = 2026-01-01 09:00 (D-1)
+
+    records = [
+        # Older forecast published before D-1 (D-2)
+        {"dataset": "WINDFOR", "publishTime": "2025-12-31T23:59:59Z", "startTime": "2026-01-02T12:00:00Z", "generation": 9000},
+        # Eligible D-1 forecast before cutoff
+        {"dataset": "WINDFOR", "publishTime": "2026-01-01T07:30:00Z", "startTime": "2026-01-02T12:00:00Z", "generation": 12000},
+        # Eligible D-1 forecast at exact cutoff boundary
+        {"dataset": "WINDFOR", "publishTime": "2026-01-01T09:00:00Z", "startTime": "2026-01-02T12:00:00Z", "generation": 13000},
+        # Post-cutoff D-1 forecast (1 second late)
+        {"dataset": "WINDFOR", "publishTime": "2026-01-01T09:00:01Z", "startTime": "2026-01-02T12:00:00Z", "generation": 99999},
+        # Post-cutoff Day D forecast
+        {"dataset": "WINDFOR", "publishTime": "2026-01-02T06:00:00Z", "startTime": "2026-01-02T12:00:00Z", "generation": 88888},
+    ]
+
+    # Latest eligible at 09:00 cutoff must be the 09:00:00Z forecast
+    selected = filter_and_select_forecasts(records, target_st, cutoff)
+    assert selected is not None
+    assert selected["publishTime"] == "2026-01-01T09:00:00Z"
+    assert selected["generation"] == 13000
+
+    # If the exact 09:00 forecast is removed, the 07:30 forecast must be selected
+    records_without_exact = [r for r in records if r["publishTime"] != "2026-01-01T09:00:00Z"]
+    selected_earlier = filter_and_select_forecasts(records_without_exact, target_st, cutoff)
+    assert selected_earlier is not None
+    assert selected_earlier["publishTime"] == "2026-01-01T07:30:00Z"
+    assert selected_earlier["generation"] == 12000
+
+    # If all D-1 forecasts are removed, the older D-2 forecast (2025-12-31) must NOT be selected
+    records_only_d2_and_post = [r for r in records if not r["publishTime"].startswith("2026-01-01")]
+    selected_none = filter_and_select_forecasts(records_only_d2_and_post, target_st, cutoff)
+    assert selected_none is None
+
+
+def test_missing_data_counters_independent():
+    """
+    Verify independent calculation of missing-forecast and missing-actual counters:
+    - Forecast-only missing
+    - Actual-only missing
+    - Both missing
+    """
+    deliv_date = date(2026, 1, 2)
+    utc_tz = parse_iso_datetime("2026-01-01T00:00:00Z").tzinfo
+
+    # 1. Forecast-only missing: 24 actuals, but only 18 forecasts (hours 0-17)
+    actuals_24 = {}
+    for h in range(24):
+        st = datetime(2026, 1, 2, h, 0, tzinfo=utc_tz)
+        actuals_24[st] = type('obj', (object,), {"target_start_time": st, "generation_mw": 10000.0})()
+
+    forecasts_18 = []
+    for h in range(18):
+        forecasts_18.append({
+            "dataset": "WINDFOR",
+            "publishTime": "2026-01-01T07:30:00Z",
+            "startTime": f"2026-01-02T{h:02d}:00:00Z",
+            "generation": 11000.0
+        })
+
+    _, m_fc_missing = match_forecasts_and_actuals(forecasts_18, actuals_24, deliv_date, deliv_date, 9)
+    assert m_fc_missing.expected_intervals == 24
+    assert m_fc_missing.matched_intervals == 18
+    assert m_fc_missing.missing_forecasts == 6
+    assert m_fc_missing.missing_actuals == 0
+    assert m_fc_missing.coverage_pct == (18 / 24) * 100.0
+
+    # 2. Actual-only missing: 24 forecasts, but only 20 actuals (hours 0-19)
+    actuals_20 = {st: actuals_24[st] for st in list(actuals_24.keys())[:20]}
+    forecasts_24 = []
+    for h in range(24):
+        forecasts_24.append({
+            "dataset": "WINDFOR",
+            "publishTime": "2026-01-01T07:30:00Z",
+            "startTime": f"2026-01-02T{h:02d}:00:00Z",
+            "generation": 11000.0
+        })
+
+    _, m_act_missing = match_forecasts_and_actuals(forecasts_24, actuals_20, deliv_date, deliv_date, 9)
+    assert m_act_missing.expected_intervals == 24
+    assert m_act_missing.matched_intervals == 20
+    assert m_act_missing.missing_forecasts == 0
+    assert m_act_missing.missing_actuals == 4
+    assert m_act_missing.coverage_pct == (20 / 24) * 100.0
+
+    # 3. Both missing on overlapping and distinct intervals:
+    # Hours 0-11: both present (12 matched)
+    # Hours 12-15: forecast only (4 actual missing)
+    # Hours 16-19: actual only (4 forecast missing)
+    # Hours 20-23: neither present (4 both missing)
+    mixed_actuals = {}
+    for h in list(range(0, 12)) + list(range(16, 20)):  # 12 + 4 = 16 actuals
+        st = datetime(2026, 1, 2, h, 0, tzinfo=utc_tz)
+        mixed_actuals[st] = type('obj', (object,), {"target_start_time": st, "generation_mw": 10000.0})()
+
+    mixed_forecasts = []
+    for h in list(range(0, 16)):  # 12 + 4 = 16 forecasts
+        mixed_forecasts.append({
+            "dataset": "WINDFOR",
+            "publishTime": "2026-01-01T07:30:00Z",
+            "startTime": f"2026-01-02T{h:02d}:00:00Z",
+            "generation": 11000.0
+        })
+
+    _, m_mixed = match_forecasts_and_actuals(mixed_forecasts, mixed_actuals, deliv_date, deliv_date, 9)
+    assert m_mixed.expected_intervals == 24
+    assert m_mixed.matched_intervals == 12  # only hours 0-11
+    # missing forecasts: hours 16-23 = 8
+    assert m_mixed.missing_forecasts == 8
+    # missing actuals: hours 12-15 and 20-23 = 8
+    assert m_mixed.missing_actuals == 8
+    assert m_mixed.coverage_pct == (12 / 24) * 100.0
+
+
+def test_compute_error_by_horizon_buckets():
+    """
+    Verify forecast-horizon analysis:
+    - Defined operational buckets: < 12h, 12–18h, 18–24h, 24–30h, 30–36h, 36–42h, ≥ 42h
+    - Correct bucket boundary assignment [min, max)
+    - Empty buckets return count=0 and None for metrics
+    - Non-empty buckets return correct MAE, RMSE, bias, and average lead time
+    """
+    class MockAligned:
+        def __init__(self, lead_time_hours: float, fc: float, act: float):
+            self.lead_time_hours = lead_time_hours
+            self.forecast_mw = fc
+            self.actual_mw = act
+            self.error_mw = fc - act
+
+    # Test samples placing observations across different buckets and boundaries:
+    # < 12h: 11.9h (1 item)
+    # 12–18h: 12.0h (boundary check: must go to 12-18h, not < 12h), 15.0h (2 items)
+    # 18–24h: 18.0h (boundary check), 20.0h (2 items)
+    # 24–30h: 27.5h (1 item)
+    # 30–36h: (empty! 0 items)
+    # 36–42h: 41.9h (1 item)
+    # ≥ 42h: 42.0h (boundary check), 50.0h (2 items)
+    aligned_items = [
+        MockAligned(11.9, 12000.0, 10000.0),  # error = +2000
+        MockAligned(12.0, 15000.0, 14000.0),  # error = +1000
+        MockAligned(15.0, 13000.0, 10000.0),  # error = +3000
+        MockAligned(18.0, 11000.0, 12000.0),  # error = -1000
+        MockAligned(20.0, 14000.0, 10000.0),  # error = +4000
+        MockAligned(27.5, 10000.0, 10000.0),  # error = 0
+        MockAligned(41.9, 8000.0, 10000.0),   # error = -2000
+        MockAligned(42.0, 16000.0, 12000.0),  # error = +4000
+        MockAligned(50.0, 10000.0, 12000.0),  # error = -2000
+    ]
+
+    buckets = compute_error_by_horizon(aligned_items)
+    assert len(buckets) == 7
+    b_dict = {b["horizon_bucket"]: b for b in buckets}
+
+    # 1. < 12h: 1 item, lead 11.9, error +2000
+    b_lt12 = b_dict["< 12h"]
+    assert b_lt12["count"] == 1
+    assert b_lt12["avg_lead_time_hours"] == 11.9
+    assert b_lt12["mae_mw"] == 2000.0
+    assert b_lt12["rmse_mw"] == 2000.0
+    assert b_lt12["bias_mw"] == 2000.0
+
+    # 2. 12–18h: 2 items (12.0h and 15.0h) -> errors +1000, +3000
+    b_12_18 = b_dict["12–18h"]
+    assert b_12_18["count"] == 2
+    assert b_12_18["avg_lead_time_hours"] == 13.5
+    assert b_12_18["mae_mw"] == 2000.0
+    assert b_12_18["bias_mw"] == 2000.0  # (1000 + 3000)/2
+
+    # 3. 18–24h: 2 items (18.0h and 20.0h) -> errors -1000, +4000
+    b_18_24 = b_dict["18–24h"]
+    assert b_18_24["count"] == 2
+    assert b_18_24["avg_lead_time_hours"] == 19.0
+    assert b_18_24["mae_mw"] == 2500.0  # (| -1000 | + | 4000 |) / 2
+    assert b_18_24["bias_mw"] == 1500.0  # (-1000 + 4000) / 2
+
+    # 4. 24–30h: 1 item (27.5h) -> error 0
+    b_24_30 = b_dict["24–30h"]
+    assert b_24_30["count"] == 1
+    assert b_24_30["mae_mw"] == 0.0
+    assert b_24_30["bias_mw"] == 0.0
+
+    # 5. 30–36h: EMPTY bucket (0 items) -> None metrics (never 0.0!)
+    b_30_36 = b_dict["30–36h"]
+    assert b_30_36["count"] == 0
+    assert b_30_36["avg_lead_time_hours"] is None
+    assert b_30_36["mae_mw"] is None
+    assert b_30_36["rmse_mw"] is None
+    assert b_30_36["bias_mw"] is None
+    assert b_30_36["p90_abs_error_mw"] is None
+    assert b_30_36["max_abs_error_mw"] is None
+
+    # 6. 36–42h: 1 item (41.9h) -> error -2000
+    b_36_42 = b_dict["36–42h"]
+    assert b_36_42["count"] == 1
+    assert b_36_42["mae_mw"] == 2000.0
+    assert b_36_42["bias_mw"] == -2000.0
+
+    # 7. ≥ 42h: 2 items (42.0h, 50.0h) -> errors +4000, -2000
+    b_ge42 = b_dict["≥ 42h"]
+    assert b_ge42["count"] == 2
+    assert b_ge42["avg_lead_time_hours"] == 46.0
+    assert b_ge42["mae_mw"] == 3000.0
+    assert b_ge42["bias_mw"] == 1000.0  # (4000 - 2000) / 2
+
+
+def test_bias_positive_negative_interpretation():
+    """
+    Verify bias definition and sign conventions:
+    - error = forecast - actual
+    - Positive bias: forecast exceeds actual on average (overforecasting).
+    - Negative bias: forecast is lower than actual on average (underforecasting).
+    """
+    deliv_date = date(2026, 1, 2)
+    utc_tz = parse_iso_datetime("2026-01-01T00:00:00Z").tzinfo
+
+    actuals = {}
+    for h in range(24):
+        st = datetime(2026, 1, 2, h, 0, tzinfo=utc_tz)
+        actuals[st] = type('obj', (object,), {"target_start_time": st, "generation_mw": 10000.0})()
+
+    # Overforecast case: forecast = 12000, actual = 10000 -> bias = +2000
+    forecasts_high = [
+        {"dataset": "WINDFOR", "publishTime": "2026-01-01T07:30:00Z", "startTime": f"2026-01-02T{h:02d}:00:00Z", "generation": 12000.0}
+        for h in range(24)
+    ]
+    _, m_over = match_forecasts_and_actuals(forecasts_high, actuals, deliv_date, deliv_date, 9)
+    assert m_over.bias_mw == 2000.0
+    assert m_over.bias_mw > 0  # Systematic overprediction
+
+    # Underforecast case: forecast = 8000, actual = 10000 -> bias = -2000
+    forecasts_low = [
+        {"dataset": "WINDFOR", "publishTime": "2026-01-01T07:30:00Z", "startTime": f"2026-01-02T{h:02d}:00:00Z", "generation": 8000.0}
+        for h in range(24)
+    ]
+    _, m_under = match_forecasts_and_actuals(forecasts_low, actuals, deliv_date, deliv_date, 9)
+    assert m_under.bias_mw == -2000.0
+    assert m_under.bias_mw < 0  # Systematic underprediction
+
+
+
 

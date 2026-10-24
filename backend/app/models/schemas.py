@@ -12,6 +12,7 @@ class HealthResponse(BaseModel):
     data_loaded: bool = Field(..., json_schema_extra={"example": True})
     fuelhh_records: int = Field(..., json_schema_extra={"example": 1536})
     windfor_records: int = Field(..., json_schema_extra={"example": 19856})
+    message: Optional[str] = Field(None, json_schema_extra={"example": "Partial data load"})
 
 
 class ForecastVsActualItem(BaseModel):
@@ -62,15 +63,19 @@ class MetricsResponse(BaseModel):
 
 
 class ErrorByHorizonItem(BaseModel):
-    lead_time_hours: float
+    horizon_bucket: str
+    min_lead_time_hours: float
+    max_lead_time_hours: float
     count: int
-    avg_forecast_mw: float
-    avg_actual_mw: float
-    mae_mw: float
-    rmse_mw: float
-    bias_mw: float
-    p90_abs_error_mw: float
-    max_abs_error_mw: float
+    lead_time_hours: Optional[float] = None
+    avg_lead_time_hours: Optional[float] = None
+    avg_forecast_mw: Optional[float] = None
+    avg_actual_mw: Optional[float] = None
+    mae_mw: Optional[float] = None
+    rmse_mw: Optional[float] = None
+    bias_mw: Optional[float] = None
+    p90_abs_error_mw: Optional[float] = None
+    max_abs_error_mw: Optional[float] = None
 
 
 class ErrorByHourItem(BaseModel):

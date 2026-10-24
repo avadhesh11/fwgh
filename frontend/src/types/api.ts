@@ -8,6 +8,7 @@ export interface HealthResponse {
   data_loaded: boolean;
   fuelhh_records: number;
   windfor_records: number;
+  message?: string | null;
 }
 
 export interface ForecastVsActualItem {
@@ -58,15 +59,19 @@ export interface MetricsResponse {
 }
 
 export interface ErrorByHorizonItem {
-  lead_time_hours: number;
+  horizon_bucket: string;
+  min_lead_time_hours: number;
+  max_lead_time_hours: number;
   count: number;
-  avg_forecast_mw: number;
-  avg_actual_mw: number;
-  mae_mw: number;
-  rmse_mw: number;
-  bias_mw: number;
-  p90_abs_error_mw: number;
-  max_abs_error_mw: number;
+  lead_time_hours?: number | null;
+  avg_lead_time_hours?: number | null;
+  avg_forecast_mw: number | null;
+  avg_actual_mw: number | null;
+  mae_mw: number | null;
+  rmse_mw: number | null;
+  bias_mw: number | null;
+  p90_abs_error_mw: number | null;
+  max_abs_error_mw: number | null;
 }
 
 export interface ErrorByHourItem {

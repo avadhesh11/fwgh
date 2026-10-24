@@ -11,7 +11,7 @@ services:
       - DATA_DIR=/app/data
       - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80,http://127.0.0.1:80,http://localhost,http://127.0.0.1
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; res = urllib.request.urlopen('http://127.0.0.1:8000/api/health'); exit(0 if res.status == 200 else 1)\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request, json; res = urllib.request.urlopen('http://127.0.0.1:8000/api/health'); exit(0 if (res.status == 200 and json.loads(res.read()).get('data_loaded') is True) else 1)\""]
       interval: 15s
       timeout: 5s
       retries: 3

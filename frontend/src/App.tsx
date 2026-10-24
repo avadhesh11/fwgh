@@ -16,6 +16,7 @@ import { KPICards } from './components/KPICards';
 import { ForecastActualChart } from './components/ForecastActualChart';
 import { ErrorByHorizonChart } from './components/ErrorByHorizonChart';
 import { ErrorByHourChart } from './components/ErrorByHourChart';
+import { BiasAnalysisCard } from './components/BiasAnalysisCard';
 import { DailyPerformanceTable } from './components/DailyPerformanceTable';
 import { ErrorAlert } from './components/ErrorAlert';
 
@@ -151,6 +152,9 @@ export function App() {
         <ErrorByHorizonChart data={horizonData} isLoading={isLoading} />
         <ErrorByHourChart data={hourData} isLoading={isLoading} />
       </div>
+
+      {/* Decision-Support Bias Investigation & Operational Guidance */}
+      <BiasAnalysisCard metrics={metrics} isLoading={isLoading} />
 
       {/* Daily Performance & Completeness Breakdown */}
       <DailyPerformanceTable data={dailyData} isLoading={isLoading} />

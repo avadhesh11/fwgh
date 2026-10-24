@@ -62,7 +62,11 @@ describe('App Component End-to-End Dashboard Flow', () => {
 
     vi.spyOn(apiService, 'getErrorByHorizon').mockResolvedValue([
       {
+        horizon_bucket: '12–18h',
+        min_lead_time_hours: 12.0,
+        max_lead_time_hours: 18.0,
         lead_time_hours: 16.5,
+        avg_lead_time_hours: 16.5,
         count: 31,
         avg_forecast_mw: 12000.0,
         avg_actual_mw: 10000.0,

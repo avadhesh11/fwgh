@@ -31,6 +31,10 @@ export const Header: React.FC<HeaderProps> = ({ health, healthLoading, healthErr
             <span style={{ color: "#94a3b8" }}>Connecting to backend...</span>
           ) : healthError ? (
             <span style={{ color: "#ef4444" }}>Backend Offline</span>
+          ) : !health?.data_loaded ? (
+            <span style={{ color: "#ef4444" }}>
+              <strong>Data Incomplete:</strong> {health?.message || 'Datasets not loaded'}
+            </span>
           ) : (
             <span>
               <strong>API Connected</strong> • {health?.fuelhh_records.toLocaleString()} FUELHH • {health?.windfor_records.toLocaleString()} WINDFOR

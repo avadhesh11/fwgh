@@ -171,23 +171,38 @@ def health_check():
     try:
         f = load_fuelhh_data()
         fuelhh_count = len(f)
-        fuelhh_loaded = True
+        fuelhh_loaded = fuelhh_count > 0
     except Exception:
-        pass
+        fuelhh_loaded = False
 
     try:
         w = load_windfor_data()
         windfor_count = len(w)
-        windfor_loaded = True
+        windfor_loaded = windfor_count > 0
     except Exception:
-        pass
+        windfor_loaded = False
+
+    data_loaded = fuelhh_loaded and windfor_loaded
+    if data_loaded:
+        status_str = "ok"
+        message = None
+    elif not fuelhh_loaded and not windfor_loaded:
+        status_str = "unhealthy"
+        message = "Required datasets (FUELHH and WINDFOR) failed to load."
+    elif not fuelhh_loaded:
+        status_str = "unhealthy"
+        message = "Required dataset (FUELHH) failed to load."
+    else:
+        status_str = "unhealthy"
+        message = "Required dataset (WINDFOR) failed to load."
 
     return HealthResponse(
-        status="ok",
+        status=status_str,
         version=settings.VERSION,
-        data_loaded=fuelhh_loaded and windfor_loaded,
+        data_loaded=data_loaded,
         fuelhh_records=fuelhh_count,
-        windfor_records=windfor_count
+        windfor_records=windfor_count,
+        message=message,
     )
 
 

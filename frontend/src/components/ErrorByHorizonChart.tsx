@@ -20,29 +20,47 @@ export const ErrorByHorizonChart: React.FC<ErrorByHorizonChartProps> = ({ data, 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item: ErrorByHorizonItem = payload[0].payload;
+      const isEmpty = item.count === 0;
+
       return (
         <div className="custom-tooltip">
           <div className="tooltip-header">
-            Lead Time: {item.lead_time_hours} Hours
+            Horizon: {item.horizon_bucket}
           </div>
-          <div className="tooltip-row">
-            <span style={{ color: '#38bdf8' }}>MAE:</span>
-            <strong>{item.mae_mw.toLocaleString()} MW</strong>
-          </div>
-          <div className="tooltip-row">
-            <span style={{ color: '#f59e0b' }}>Signed Bias:</span>
-            <strong style={{ color: item.bias_mw > 0 ? '#f59e0b' : '#38bdf8' }}>
-              {item.bias_mw > 0 ? '+' : ''}{item.bias_mw.toLocaleString()} MW
-            </strong>
-          </div>
-          <div className="tooltip-row">
-            <span style={{ color: '#8b5cf6' }}>P90 Abs Error:</span>
-            <strong>{item.p90_abs_error_mw.toLocaleString()} MW</strong>
-          </div>
-          <div className="tooltip-row">
-            <span style={{ color: '#94a3b8' }}>Sample Count:</span>
-            <span>{item.count} days</span>
-          </div>
+          {isEmpty ? (
+            <div className="tooltip-row" style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+              No forecast observations in this lead-time window
+            </div>
+          ) : (
+            <>
+              {item.avg_lead_time_hours !== null && item.avg_lead_time_hours !== undefined && (
+                <div className="tooltip-row">
+                  <span style={{ color: '#94a3b8' }}>Avg Lead Time:</span>
+                  <strong>{item.avg_lead_time_hours.toFixed(1)} Hours</strong>
+                </div>
+              )}
+              <div className="tooltip-row">
+                <span style={{ color: '#38bdf8' }}>MAE:</span>
+                <strong>{item.mae_mw !== null ? `${item.mae_mw.toLocaleString()} MW` : '—'}</strong>
+              </div>
+              <div className="tooltip-row">
+                <span style={{ color: '#f59e0b' }}>Signed Bias:</span>
+                <strong style={{ color: item.bias_mw !== null && item.bias_mw > 0 ? '#f59e0b' : '#38bdf8' }}>
+                  {item.bias_mw !== null ? `${item.bias_mw > 0 ? '+' : ''}${item.bias_mw.toLocaleString()} MW` : '—'}
+                </strong>
+              </div>
+              {item.p90_abs_error_mw !== null && (
+                <div className="tooltip-row">
+                  <span style={{ color: '#8b5cf6' }}>P90 Abs Error:</span>
+                  <strong>{item.p90_abs_error_mw.toLocaleString()} MW</strong>
+                </div>
+              )}
+              <div className="tooltip-row">
+                <span style={{ color: '#94a3b8' }}>Sample Count:</span>
+                <span>{item.count} intervals</span>
+              </div>
+            </>
+          )}
         </div>
       );
     }
@@ -55,7 +73,7 @@ export const ErrorByHorizonChart: React.FC<ErrorByHorizonChartProps> = ({ data, 
         <div className="chart-title-area">
           <h3 className="chart-title">Forecast Error by Lead Time Horizon</h3>
           <span className="chart-subtitle">
-            How error behaves as distance to delivery expands (shorter lead time = published closer to delivery)
+            Operational lead-time intervals: (delivery start − publication time). Evaluates error as forecast horizon expands.
           </span>
         </div>
 
@@ -86,8 +104,7 @@ export const ErrorByHorizonChart: React.FC<ErrorByHorizonChartProps> = ({ data, 
             <ComposedChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis
-                dataKey="lead_time_hours"
-                tickFormatter={(val: number) => `${val}h`}
+                dataKey="horizon_bucket"
                 stroke="#64748b"
                 tick={{ fontSize: 11 }}
               />
