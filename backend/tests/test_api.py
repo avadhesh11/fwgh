@@ -161,7 +161,7 @@ def test_metrics_zero_error_case():
 
 
 def test_empty_results_and_coverage():
-    """Verify empty results return 0 matched intervals, 0.0% coverage, and no division errors."""
+    """Verify empty results return 0 matched intervals, 0.0% coverage, and null metrics."""
     # Empty datasets
     set_cached_data(fuelhh=[], windfor=[])
 
@@ -171,8 +171,16 @@ def test_empty_results_and_coverage():
     assert m["expected_intervals"] == 24
     assert m["matched_intervals"] == 0
     assert m["coverage_pct"] == 0.0
-    assert m["mae_mw"] == 0.0
-    assert m["rmse_mw"] == 0.0
+    assert m["mae_mw"] is None
+    assert m["rmse_mw"] is None
+    assert m["bias_mw"] is None
+    assert m["p50_abs_error_mw"] is None
+    assert m["p90_abs_error_mw"] is None
+    assert m["p99_abs_error_mw"] is None
+    assert m["max_abs_error_mw"] is None
+    assert m["min_lead_time_hours"] is None
+    assert m["max_lead_time_hours"] is None
+    assert m["avg_lead_time_hours"] is None
 
 
 def test_error_by_horizon_endpoint():
@@ -261,13 +269,43 @@ def test_invalid_query_parameters_validation():
     assert resp.status_code == 400
     assert "cannot be after end_date" in resp.json()["detail"]
 
-    # 3. Invalid cutoff time
-    resp = client.get("/api/metrics?cutoff_time=25:00")
+    # 4. Dates before supported cached delivery window (prior to 2026-01-01)
+    resp = client.get("/api/metrics?start_date=2025-12-31&end_date=2026-01-15")
     assert resp.status_code == 400
-    assert "Invalid cutoff_time" in resp.json()["detail"]
+    assert "outside the supported cached delivery window" in resp.json()["detail"]
 
-    resp = client.get("/api/metrics?cutoff_time=invalid")
+    # 5. Dates after supported cached delivery window (after 2026-02-01)
+    resp = client.get("/api/metrics?start_date=2026-01-15&end_date=2026-02-05")
     assert resp.status_code == 400
+    assert "outside the supported cached delivery window" in resp.json()["detail"]
+
+    # 6. Providing only one date without scope
+    resp = client.get("/api/metrics?start_date=2026-01-10")
+    assert resp.status_code == 400
+    assert "Both start_date and end_date must be provided" in resp.json()["detail"]
+
+    resp = client.get("/api/metrics?end_date=2026-01-10")
+    assert resp.status_code == 400
+    assert "Both start_date and end_date must be provided" in resp.json()["detail"]
+
+
+def test_default_route_returns_scope_b():
+    """Verify that calling /api/metrics with no parameters defaults to Scope B benchmark."""
+    clear_cache()
+    resp = client.get("/api/metrics")
+    assert resp.status_code == 200
+    m = resp.json()
+    assert m["scope"] == "B"
+    assert m["start_date"] == "2026-01-02"
+    assert m["end_date"] == "2026-02-01"
+    assert m["cutoff_time"] == "09:00"
+    assert m["expected_intervals"] == 744
+    assert m["matched_intervals"] == 744
+    assert m["coverage_pct"] == 100.0
+    assert m["mae_mw"] == 2038.91
+    assert m["rmse_mw"] == 2504.76
+    assert m["bias_mw"] == 1747.89
+    assert m["p90_abs_error_mw"] == 4097.90
 
 
 def test_missing_records_not_treated_as_zero_in_api():

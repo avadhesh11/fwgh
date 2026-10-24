@@ -21,10 +21,10 @@ import { ErrorAlert } from './components/ErrorAlert';
 
 export function App() {
   const [filters, setFilters] = useState<FilterParams>({
-    scope: 'A',
+    scope: 'B',
     cutoff_time: '09:00',
-    start_date: '2026-01-01',
-    end_date: '2026-01-31',
+    start_date: '2026-01-02',
+    end_date: '2026-02-01',
   });
 
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -92,6 +92,11 @@ export function App() {
         return;
       }
       setError(err.message || 'An error occurred while fetching dashboard analytics.');
+      setMetrics(null);
+      setForecastActualData([]);
+      setHorizonData([]);
+      setHourData([]);
+      setDailyData([]);
     } finally {
       setIsLoading(false);
     }

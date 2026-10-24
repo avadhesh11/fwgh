@@ -65,4 +65,36 @@ describe('KPICards Component', () => {
     expect(screen.getByText('-500.3')).toBeInTheDocument();
     expect(screen.getByText(/Underforecast/i)).toBeInTheDocument();
   });
+
+  it('indicates Zero Bias when bias is exactly zero', () => {
+    const zeroBiasMetrics: MetricsResponse = {
+      ...mockMetrics,
+      bias_mw: 0.0,
+    };
+    render(<KPICards metrics={zeroBiasMetrics} isLoading={false} />);
+    expect(screen.getByText(/Zero Bias/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Underforecast/i)).not.toBeInTheDocument();
+  });
+
+  it('renders dashes and alert banner when zero intervals are matched', () => {
+    const zeroMatchMetrics: MetricsResponse = {
+      ...mockMetrics,
+      matched_intervals: 0,
+      coverage_pct: 0.0,
+      mae_mw: null,
+      rmse_mw: null,
+      bias_mw: null,
+      p50_abs_error_mw: null,
+      p90_abs_error_mw: null,
+      p99_abs_error_mw: null,
+      max_abs_error_mw: null,
+      min_lead_time_hours: null,
+      max_lead_time_hours: null,
+      avg_lead_time_hours: null,
+    };
+    render(<KPICards metrics={zeroMatchMetrics} isLoading={false} />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/No matched data available for this selection/i)).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4);
+  });
 });

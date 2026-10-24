@@ -45,7 +45,7 @@ export const DailyPerformanceTable: React.FC<DailyPerformanceTableProps> = ({ da
             </thead>
             <tbody>
               {data.map((row) => {
-                const isOver = row.daily_bias_mw > 0;
+                const isOver = (row.daily_bias_mw ?? 0) > 0;
                 return (
                   <tr key={row.delivery_date}>
                     <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -74,31 +74,31 @@ export const DailyPerformanceTable: React.FC<DailyPerformanceTableProps> = ({ da
                       )}
                     </td>
                     <td>
-                      {row.is_complete ? (
-                        <span>{row.daily_energy_forecast_mwh.toLocaleString()} MWh</span>
-                      ) : (
-                        <span style={{ color: '#f59e0b' }}>
-                          {row.daily_energy_forecast_mwh.toLocaleString()} MWh*
+                      {row.daily_energy_forecast_mwh != null ? (
+                        <span style={{ color: row.is_complete ? 'inherit' : '#f59e0b' }}>
+                          {row.daily_energy_forecast_mwh.toLocaleString()} MWh{!row.is_complete ? '*' : ''}
                         </span>
+                      ) : (
+                        <span>—</span>
                       )}
                     </td>
                     <td>
-                      {row.is_complete ? (
-                        <span>{row.daily_energy_actual_mwh.toLocaleString()} MWh</span>
-                      ) : (
-                        <span style={{ color: '#f59e0b' }}>
-                          {row.daily_energy_actual_mwh.toLocaleString()} MWh*
+                      {row.daily_energy_actual_mwh != null ? (
+                        <span style={{ color: row.is_complete ? 'inherit' : '#f59e0b' }}>
+                          {row.daily_energy_actual_mwh.toLocaleString()} MWh{!row.is_complete ? '*' : ''}
                         </span>
+                      ) : (
+                        <span>—</span>
                       )}
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {row.daily_mae_mw.toLocaleString()} MW
+                      {row.daily_mae_mw != null ? `${row.daily_mae_mw.toLocaleString()} MW` : '—'}
                     </td>
-                    <td style={{ color: isOver ? '#f59e0b' : '#38bdf8', fontWeight: 600 }}>
-                      {row.daily_bias_mw > 0 ? '+' : ''}{row.daily_bias_mw.toLocaleString()} MW
+                    <td style={{ color: row.daily_bias_mw == null ? '#94a3b8' : isOver ? '#f59e0b' : '#38bdf8', fontWeight: 600 }}>
+                      {row.daily_bias_mw != null ? `${row.daily_bias_mw > 0 ? '+' : ''}${row.daily_bias_mw.toLocaleString()} MW` : '—'}
                     </td>
                     <td>
-                      {row.daily_max_abs_error_mw.toLocaleString()} MW
+                      {row.daily_max_abs_error_mw != null ? `${row.daily_max_abs_error_mw.toLocaleString()} MW` : '—'}
                     </td>
                   </tr>
                 );

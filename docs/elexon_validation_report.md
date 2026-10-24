@@ -185,7 +185,7 @@ Both decision scopes were audited and recalculated from the validated dataset:
 
 ## 6. Automated Test Suite
 
-The test suite in [`fwgh/backend/tests/test_alignment.py`](file:///e:/avadhesh/projects/GridBricks/fwgh/backend/tests/test_alignment.py) covers all audit requirements:
+The test suite in [`backend/tests/test_alignment.py`](../backend/tests/test_alignment.py) covers all audit requirements:
 1. `test_fuelhh_aggregation_arithmetic_mean_mw`: Proves $(1000 + 2000)/2 = 1500\text{ MW}$.
 2. `test_fuelhh_missing_half_hour_is_not_aggregated`: Rejects incomplete hourly intervals.
 3. `test_fuelhh_exact_duplicate_dropped_cleanly`: Validates exact duplicate pruning.

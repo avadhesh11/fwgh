@@ -73,4 +73,31 @@ describe('FilterBar Component', () => {
 
     expect(handleRefresh).toHaveBeenCalledTimes(1);
   });
+
+  it('renders Custom range badge when custom dates are active and bounds inputs', () => {
+    const customFilters: FilterParams = {
+      cutoff_time: '09:00',
+      start_date: '2026-01-10',
+      end_date: '2026-01-20',
+    };
+
+    render(
+      <FilterBar
+        filters={customFilters}
+        onFilterChange={vi.fn()}
+        onRefresh={vi.fn()}
+        isLoading={false}
+      />
+    );
+
+    expect(screen.getByText('Custom range')).toBeInTheDocument();
+
+    const startInput = screen.getByLabelText('Start date');
+    const endInput = screen.getByLabelText('End date');
+
+    expect(startInput).toHaveAttribute('min', '2026-01-01');
+    expect(startInput).toHaveAttribute('max', '2026-02-01');
+    expect(endInput).toHaveAttribute('min', '2026-01-01');
+    expect(endInput).toHaveAttribute('max', '2026-02-01');
+  });
 });

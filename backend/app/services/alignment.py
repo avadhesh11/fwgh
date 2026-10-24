@@ -71,16 +71,16 @@ class VerificationMetrics:
     missing_forecasts: int
     missing_actuals: int
     coverage_pct: float
-    mae_mw: float
-    rmse_mw: float
-    bias_mw: float
-    p50_abs_error_mw: float
-    p90_abs_error_mw: float
-    p99_abs_error_mw: float
-    max_abs_error_mw: float
-    min_lead_time_hours: float
-    max_lead_time_hours: float
-    avg_lead_time_hours: float
+    mae_mw: Optional[float]
+    rmse_mw: Optional[float]
+    bias_mw: Optional[float]
+    p50_abs_error_mw: Optional[float]
+    p90_abs_error_mw: Optional[float]
+    p99_abs_error_mw: Optional[float]
+    max_abs_error_mw: Optional[float]
+    min_lead_time_hours: Optional[float]
+    max_lead_time_hours: Optional[float]
+    avg_lead_time_hours: Optional[float]
 
 
 def parse_iso_datetime(dt_str: str) -> datetime:
@@ -336,7 +336,7 @@ def match_forecasts_and_actuals(
         max_lt = float(max(lead_times))
         avg_lt = float(sum(lead_times) / len(lead_times))
     else:
-        mae = rmse = bias = p50 = p90 = p99 = max_err = min_lt = max_lt = avg_lt = 0.0
+        mae = rmse = bias = p50 = p90 = p99 = max_err = min_lt = max_lt = avg_lt = None
 
     coverage = (len(matched_list) / expected_total * 100.0) if expected_total > 0 else 0.0
 
@@ -456,7 +456,7 @@ def compute_daily_errors(
             energy_fc = round(float(sum(fcs)), 2)  # MW * 1h = MWh
             energy_act = round(float(sum(acts)), 2)  # MW * 1h = MWh
         else:
-            mae = rmse = bias = max_err = avg_fc = avg_act = energy_fc = energy_act = 0.0
+            mae = rmse = bias = max_err = avg_fc = avg_act = energy_fc = energy_act = None
 
         results.append({
             "delivery_date": cur_d.strftime("%Y-%m-%d"),

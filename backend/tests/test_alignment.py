@@ -266,3 +266,35 @@ def test_error_sign_convention():
     
     assert overforecast_error == +4000.0  # Overforecast
     assert underforecast_error == -4000.0  # Underforecast
+
+
+def test_zero_matched_intervals_returns_none_metrics():
+    """
+    Verify that zero matched intervals return coverage 0.0% and None for undefined metrics
+    (MAE, RMSE, Bias, Percentiles, lead times).
+    """
+    deliv_date = date(2026, 1, 2)
+    matched, metrics = match_forecasts_and_actuals(
+        windfor_records=[],
+        hourly_actuals={},
+        delivery_start_date=deliv_date,
+        delivery_end_date=deliv_date,
+        cutoff_hour_uk=9
+    )
+
+    assert metrics.expected_intervals == 24
+    assert metrics.matched_intervals == 0
+    assert metrics.missing_forecasts == 24
+    assert metrics.missing_actuals == 0
+    assert metrics.coverage_pct == 0.0
+    assert metrics.mae_mw is None
+    assert metrics.rmse_mw is None
+    assert metrics.bias_mw is None
+    assert metrics.p50_abs_error_mw is None
+    assert metrics.p90_abs_error_mw is None
+    assert metrics.p99_abs_error_mw is None
+    assert metrics.max_abs_error_mw is None
+    assert metrics.min_lead_time_hours is None
+    assert metrics.max_lead_time_hours is None
+    assert metrics.avg_lead_time_hours is None
+

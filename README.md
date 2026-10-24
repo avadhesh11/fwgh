@@ -90,6 +90,14 @@ The repository contains validated, locally cached JSON datasets in `fwgh/backend
 
 ## 3. Verified Benchmark Metrics
 
+### Scope B (Default — Decisions Jan 1–31, 2026 -> Delivery Jan 2–Feb 1, 2026; Cutoff 09:00 UK)
+* **MAE**: `2,038.91 MW`
+* **RMSE**: `2,504.76 MW`
+* **Mean Bias**: `+1,747.89 MW` (Overforecasting)
+* **P90 Absolute Error**: `4,097.90 MW`
+* **Coverage**: `100.00%` (744 / 744 target intervals)
+* **Lead Time**: Min `16.5h`, Max `39.5h`, Mean `28.0h`
+
 ### Scope A (Delivery Jan 1–31, 2026; Cutoff 09:00 UK)
 * **MAE**: `2,142.12 MW`
 * **RMSE**: `2,611.70 MW`
@@ -98,21 +106,13 @@ The repository contains validated, locally cached JSON datasets in `fwgh/backend
 * **Coverage**: `100.00%` (744 / 744 target intervals)
 * **Lead Time**: Min `16.5h`, Max `39.5h`, Mean `28.0h`
 
-### Scope A (Delivery Jan 1–31, 2026; Cutoff 04:00 UK)
+### Scope A Sensitivity (Delivery Jan 1–31, 2026; Cutoff 04:00 UK)
 * **MAE**: `2,199.81 MW`
 * **RMSE**: `2,691.79 MW`
 * **Mean Bias**: `+1,862.38 MW`
 * **P90 Absolute Error**: `4,385.25 MW`
 * **Coverage**: `100.00%` (744 / 744 target intervals)
 * **Lead Time**: Min `21.5h`, Max `44.5h`, Mean `33.0h`
-
-### Scope B (Decisions Jan 1–31, 2026 -> Delivery Jan 2–Feb 1, 2026; Cutoff 09:00 UK)
-* **MAE**: `2,038.91 MW`
-* **RMSE**: `2,504.76 MW`
-* **Mean Bias**: `+1,747.89 MW`
-* **P90 Absolute Error**: `4,097.90 MW`
-* **Coverage**: `100.00%` (744 / 744 target intervals)
-* **Lead Time**: Min `16.5h`, Max `39.5h`, Mean `28.0h`
 
 ---
 
@@ -199,19 +199,19 @@ Open [http://localhost:5173](http://localhost:5173) in your browser. Vite automa
 
 ## 8. Test Execution
 
-### Backend Automated Test Suite (28 tests)
+### Backend Automated Test Suite (30 tests)
 ```bash
 cd fwgh/backend
 python -m pytest tests/ -v
 ```
-All 28 tests pass in < 2 seconds, covering alignment rules, duplicate pruning, integrity error handling, real-data regression baselines, cutoff boundaries, and explicit CORS headers.
+All 30 tests pass, covering alignment rules, duplicate pruning, integrity error handling, real-data regression baselines for Scope A and B, cutoff boundaries, server-side supported date range validation, nullable metrics on zero matches, and explicit CORS headers.
 
-### Frontend Test Suite (13 tests)
+### Frontend Test Suite (16 tests)
 ```bash
 cd fwgh/frontend
 npm test
 ```
-All 13 component and integration tests pass, verifying KPI formatting, scope toggles, cutoff sensitivity updates, daily completeness flags, and error alerts.
+All 16 component and integration tests pass, verifying KPI formatting, Scope B default selection, custom date range badges and input bounds, cutoff sensitivity updates, zero-match alerts, daily completeness flags, and error alerts.
 
 ### Frontend Production Bundle Build
 ```bash
@@ -219,3 +219,9 @@ cd fwgh/frontend
 npm run build
 ```
 Type checks and bundles the client app cleanly into `dist/`.
+
+---
+
+## 9. AI Tool Disclosure
+
+AI development tools, including Antigravity, were used to assist with code implementation, debugging, testing, and documentation. The developer remains responsible for reviewing the implementation and validating the reported results.

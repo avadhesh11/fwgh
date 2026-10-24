@@ -14,7 +14,7 @@ class Settings:
     API_PREFIX: str = "/api"
     
     # Scope defaults
-    DEFAULT_SCOPE: str = "A"
+    DEFAULT_SCOPE: str = "B"
     DEFAULT_CUTOFF_TIME: str = "09:00"  # 09:00 UK local time
     
     # Scope definitions
@@ -23,6 +23,10 @@ class Settings:
     
     SCOPE_B_START: str = "2026-01-02"
     SCOPE_B_END: str = "2026-02-01"
+
+    # Supported cached dataset delivery boundaries
+    SUPPORTED_DELIVERY_START: str = "2026-01-01"
+    SUPPORTED_DELIVERY_END: str = "2026-02-01"
 
     @property
     def CORS_ORIGINS(self) -> list[str]:

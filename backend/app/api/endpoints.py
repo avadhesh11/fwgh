@@ -78,9 +78,16 @@ def resolve_and_validate_params(
         resolved_start = resolved_start or date.fromisoformat(settings.SCOPE_B_START)
         resolved_end = resolved_end or date.fromisoformat(settings.SCOPE_B_END)
     else:
-        # Default to Scope A if neither scope nor dates are supplied
-        resolved_start = resolved_start or date.fromisoformat(settings.SCOPE_A_START)
-        resolved_end = resolved_end or date.fromisoformat(settings.SCOPE_A_END)
+        # Default to Scope B if neither scope nor dates are supplied
+        if resolved_start is None and resolved_end is None:
+            norm_scope = settings.DEFAULT_SCOPE
+            resolved_start = date.fromisoformat(settings.SCOPE_B_START)
+            resolved_end = date.fromisoformat(settings.SCOPE_B_END)
+        elif resolved_start is None or resolved_end is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both start_date and end_date must be provided when querying custom date ranges."
+            )
 
     if resolved_start > resolved_end:
         raise HTTPException(
@@ -88,7 +95,34 @@ def resolve_and_validate_params(
             detail=f"Invalid date range: start_date ({resolved_start}) cannot be after end_date ({resolved_end})."
         )
 
-    return resolved_start, resolved_end, cutoff_hour, cutoff_minute, norm_scope
+    # Server-side validation against supported cached dataset window
+    supported_min = date.fromisoformat(settings.SUPPORTED_DELIVERY_START)
+    supported_max = date.fromisoformat(settings.SUPPORTED_DELIVERY_END)
+    if resolved_start < supported_min or resolved_end > supported_max:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Requested date range ({resolved_start} to {resolved_end}) is outside "
+                f"the supported cached delivery window ({settings.SUPPORTED_DELIVERY_START} to {settings.SUPPORTED_DELIVERY_END})."
+            )
+        )
+
+    # Determine accurate effective scope indicator
+    scope_a_start = date.fromisoformat(settings.SCOPE_A_START)
+    scope_a_end = date.fromisoformat(settings.SCOPE_A_END)
+    scope_b_start = date.fromisoformat(settings.SCOPE_B_START)
+    scope_b_end = date.fromisoformat(settings.SCOPE_B_END)
+
+    if norm_scope:
+        effective_scope = norm_scope
+    elif resolved_start == scope_a_start and resolved_end == scope_a_end:
+        effective_scope = "A"
+    elif resolved_start == scope_b_start and resolved_end == scope_b_end:
+        effective_scope = "B"
+    else:
+        effective_scope = None
+
+    return resolved_start, resolved_end, cutoff_hour, cutoff_minute, effective_scope
 
 
 def execute_alignment(
@@ -212,6 +246,9 @@ def get_metrics(
     )
     matched, metrics = execute_alignment(start_d, end_d, cutoff_h, cutoff_m)
 
+    def _round(val: Optional[float], decimals: int = 2) -> Optional[float]:
+        return round(val, decimals) if val is not None else None
+
     return MetricsResponse(
         scope=norm_scope,
         start_date=start_d.strftime("%Y-%m-%d"),
@@ -222,16 +259,16 @@ def get_metrics(
         missing_forecasts=metrics.missing_forecasts,
         missing_actuals=metrics.missing_actuals,
         coverage_pct=round(metrics.coverage_pct, 2),
-        mae_mw=round(metrics.mae_mw, 2),
-        rmse_mw=round(metrics.rmse_mw, 2),
-        bias_mw=round(metrics.bias_mw, 2),
-        p50_abs_error_mw=round(metrics.p50_abs_error_mw, 2),
-        p90_abs_error_mw=round(metrics.p90_abs_error_mw, 2),
-        p99_abs_error_mw=round(metrics.p99_abs_error_mw, 2),
-        max_abs_error_mw=round(metrics.max_abs_error_mw, 2),
-        min_lead_time_hours=round(metrics.min_lead_time_hours, 2),
-        max_lead_time_hours=round(metrics.max_lead_time_hours, 2),
-        avg_lead_time_hours=round(metrics.avg_lead_time_hours, 2)
+        mae_mw=_round(metrics.mae_mw),
+        rmse_mw=_round(metrics.rmse_mw),
+        bias_mw=_round(metrics.bias_mw),
+        p50_abs_error_mw=_round(metrics.p50_abs_error_mw),
+        p90_abs_error_mw=_round(metrics.p90_abs_error_mw),
+        p99_abs_error_mw=_round(metrics.p99_abs_error_mw),
+        max_abs_error_mw=_round(metrics.max_abs_error_mw),
+        min_lead_time_hours=_round(metrics.min_lead_time_hours),
+        max_lead_time_hours=_round(metrics.max_lead_time_hours),
+        avg_lead_time_hours=_round(metrics.avg_lead_time_hours)
     )
 
 

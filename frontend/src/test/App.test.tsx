@@ -14,42 +14,42 @@ describe('App Component End-to-End Dashboard Flow', () => {
     });
 
     vi.spyOn(apiService, 'getMetrics').mockResolvedValue({
-      scope: 'A',
-      start_date: '2026-01-01',
-      end_date: '2026-01-31',
+      scope: 'B',
+      start_date: '2026-01-02',
+      end_date: '2026-02-01',
       cutoff_time: '09:00',
       expected_intervals: 744,
       matched_intervals: 744,
       missing_forecasts: 0,
       missing_actuals: 0,
       coverage_pct: 100.0,
-      mae_mw: 2142.12,
-      rmse_mw: 2611.70,
-      bias_mw: 1851.90,
-      p50_abs_error_mw: 1729.80,
-      p90_abs_error_mw: 4300.15,
-      p99_abs_error_mw: 6867.75,
-      max_abs_error_mw: 7120.50,
+      mae_mw: 2038.91,
+      rmse_mw: 2504.76,
+      bias_mw: 1747.89,
+      p50_abs_error_mw: 1680.50,
+      p90_abs_error_mw: 4097.90,
+      p99_abs_error_mw: 6420.10,
+      max_abs_error_mw: 6980.20,
       min_lead_time_hours: 16.5,
       max_lead_time_hours: 39.5,
       avg_lead_time_hours: 28.0,
     });
 
     vi.spyOn(apiService, 'getForecastVsActual').mockResolvedValue({
-      scope: 'A',
-      start_date: '2026-01-01',
-      end_date: '2026-01-31',
+      scope: 'B',
+      start_date: '2026-01-02',
+      end_date: '2026-02-01',
       cutoff_time: '09:00',
       expected_intervals: 744,
       matched_intervals: 744,
       coverage_pct: 100.0,
       data: [
         {
-          target_start_time: '2026-01-01T00:00:00Z',
-          delivery_date: '2026-01-01',
+          target_start_time: '2026-01-02T00:00:00Z',
+          delivery_date: '2026-01-02',
           hour_index: 0,
           cutoff_time: '09:00',
-          publish_time: '2025-12-31T07:30:00Z',
+          publish_time: '2026-01-01T07:30:00Z',
           lead_time_hours: 16.5,
           forecast_mw: 12500.0,
           actual_mw: 10500.0,
@@ -91,7 +91,7 @@ describe('App Component End-to-End Dashboard Flow', () => {
 
     vi.spyOn(apiService, 'getDailyErrors').mockResolvedValue([
       {
-        delivery_date: '2026-01-01',
+        delivery_date: '2026-01-02',
         expected_hours: 24,
         matched_hours: 24,
         missing_hours: 0,
@@ -113,17 +113,17 @@ describe('App Component End-to-End Dashboard Flow', () => {
     vi.restoreAllMocks();
   });
 
-  it('mounts and renders the full portal layout with headers and KPI data', async () => {
+  it('mounts and renders the full portal layout with headers and Scope B KPI data', async () => {
     render(<App />);
 
     // Header title
     expect(screen.getByText('Wind Forecast Decision Portal')).toBeInTheDocument();
 
-    // Wait for metrics to load and appear
+    // Wait for metrics to load and appear (Scope B benchmark default)
     await waitFor(() => {
-      expect(screen.getByText('2,142.1')).toBeInTheDocument();
-      expect(screen.getByText('2,611.7')).toBeInTheDocument();
-      expect(screen.getByText('+1,851.9')).toBeInTheDocument();
+      expect(screen.getByText('2,038.9')).toBeInTheDocument();
+      expect(screen.getByText('2,504.8')).toBeInTheDocument();
+      expect(screen.getByText('+1,747.9')).toBeInTheDocument();
     });
 
     // Check chart titles
@@ -146,6 +146,8 @@ describe('App Component End-to-End Dashboard Flow', () => {
   });
 
   it('updates and displays exact API metrics when cutoff is changed to 04:00 on Scope A', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+
     // Return Scope A, 04:00 metrics when requested
     vi.spyOn(apiService, 'getMetrics').mockImplementation(async (params) => {
       if (params?.cutoff_time === '04:00' && params?.scope === 'A') {
@@ -171,33 +173,64 @@ describe('App Component End-to-End Dashboard Flow', () => {
           avg_lead_time_hours: 33.0,
         };
       }
+      if (params?.scope === 'A') {
+        return {
+          scope: 'A',
+          start_date: '2026-01-01',
+          end_date: '2026-01-31',
+          cutoff_time: '09:00',
+          expected_intervals: 744,
+          matched_intervals: 744,
+          missing_forecasts: 0,
+          missing_actuals: 0,
+          coverage_pct: 100.0,
+          mae_mw: 2142.12,
+          rmse_mw: 2611.70,
+          bias_mw: 1851.90,
+          p50_abs_error_mw: 1729.80,
+          p90_abs_error_mw: 4300.15,
+          p99_abs_error_mw: 6867.75,
+          max_abs_error_mw: 7120.50,
+          min_lead_time_hours: 16.5,
+          max_lead_time_hours: 39.5,
+          avg_lead_time_hours: 28.0,
+        };
+      }
       return {
-        scope: 'A',
-        start_date: '2026-01-01',
-        end_date: '2026-01-31',
+        scope: 'B',
+        start_date: '2026-01-02',
+        end_date: '2026-02-01',
         cutoff_time: '09:00',
         expected_intervals: 744,
         matched_intervals: 744,
         missing_forecasts: 0,
         missing_actuals: 0,
         coverage_pct: 100.0,
-        mae_mw: 2142.12,
-        rmse_mw: 2611.70,
-        bias_mw: 1851.90,
-        p50_abs_error_mw: 1729.80,
-        p90_abs_error_mw: 4300.15,
-        p99_abs_error_mw: 6867.75,
-        max_abs_error_mw: 7120.50,
+        mae_mw: 2038.91,
+        rmse_mw: 2504.76,
+        bias_mw: 1747.89,
+        p50_abs_error_mw: 1680.50,
+        p90_abs_error_mw: 4097.90,
+        p99_abs_error_mw: 6420.10,
+        max_abs_error_mw: 6980.20,
         min_lead_time_hours: 16.5,
         max_lead_time_hours: 39.5,
         avg_lead_time_hours: 28.0,
       };
     });
 
-    const { fireEvent } = await import('@testing-library/react');
     render(<App />);
 
-    // Initially loads 09:00 MAE = 2,142.1
+    // Initially loads Scope B 09:00 MAE = 2,038.9
+    await waitFor(() => {
+      expect(screen.getByText('2,038.9')).toBeInTheDocument();
+    });
+
+    // Select Scope A
+    const scopeABtn = screen.getByRole('button', { name: /Scope A/i });
+    fireEvent.click(scopeABtn);
+
+    // Wait for Scope A 09:00 MAE = 2,142.1
     await waitFor(() => {
       expect(screen.getByText('2,142.1')).toBeInTheDocument();
     });

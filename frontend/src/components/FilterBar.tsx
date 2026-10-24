@@ -17,7 +17,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onRefresh,
   isLoading
 }) => {
-  const currentScope = filters.scope || 'A';
+  const isScopeA = filters.start_date === '2026-01-01' && filters.end_date === '2026-01-31';
+  const isScopeB = filters.start_date === '2026-01-02' && filters.end_date === '2026-02-01';
+  const isCustom = !isScopeA && !isScopeB;
   const currentCutoff = filters.cutoff_time || '09:00';
 
   const handleScopeSelect = (scope: 'A' | 'B') => {
@@ -48,6 +50,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onFilterChange({
       ...filters,
+      scope: undefined,
       start_date: e.target.value
     });
   };
@@ -55,6 +58,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onFilterChange({
       ...filters,
+      scope: undefined,
       end_date: e.target.value
     });
   };
@@ -68,18 +72,35 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <div className="scope-btn-group">
             <button
               type="button"
-              className={`scope-btn ${currentScope === 'A' ? 'active' : ''}`}
+              className={`scope-btn ${isScopeA ? 'active' : ''}`}
               onClick={() => handleScopeSelect('A')}
             >
               Scope A (Delivery Jan 1–31)
             </button>
             <button
               type="button"
-              className={`scope-btn ${currentScope === 'B' ? 'active' : ''}`}
+              className={`scope-btn ${isScopeB ? 'active' : ''}`}
               onClick={() => handleScopeSelect('B')}
             >
               Scope B (Decisions Jan 1–31)
             </button>
+            {isCustom && (
+              <span
+                style={{
+                  alignSelf: 'center',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  color: '#fbbf24',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '6px',
+                  marginLeft: '4px',
+                }}
+              >
+                Custom range
+              </span>
+            )}
           </div>
         </div>
 
@@ -107,21 +128,27 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <div className="filter-group">
           <label className="filter-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Calendar size={12} />
-            Delivery Dates
+            Delivery Dates (Supported: Jan 1 – Feb 1, 2026)
           </label>
           <div className="date-inputs">
             <input
               type="date"
               className="text-input"
-              value={filters.start_date || (currentScope === 'A' ? '2026-01-01' : '2026-01-02')}
+              min="2026-01-01"
+              max="2026-02-01"
+              value={filters.start_date || '2026-01-02'}
               onChange={handleStartDateChange}
+              aria-label="Start date"
             />
             <span style={{ color: '#64748b' }}>to</span>
             <input
               type="date"
               className="text-input"
-              value={filters.end_date || (currentScope === 'A' ? '2026-01-31' : '2026-02-01')}
+              min="2026-01-01"
+              max="2026-02-01"
+              value={filters.end_date || '2026-02-01'}
               onChange={handleEndDateChange}
+              aria-label="End date"
             />
           </div>
         </div>

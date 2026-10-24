@@ -45,16 +45,16 @@ export interface MetricsResponse {
   missing_forecasts: number;
   missing_actuals: number;
   coverage_pct: number;
-  mae_mw: number;
-  rmse_mw: number;
-  bias_mw: number;
-  p50_abs_error_mw: number;
-  p90_abs_error_mw: number;
-  p99_abs_error_mw: number;
-  max_abs_error_mw: number;
-  min_lead_time_hours: number;
-  max_lead_time_hours: number;
-  avg_lead_time_hours: number;
+  mae_mw: number | null;
+  rmse_mw: number | null;
+  bias_mw: number | null;
+  p50_abs_error_mw: number | null;
+  p90_abs_error_mw: number | null;
+  p99_abs_error_mw: number | null;
+  max_abs_error_mw: number | null;
+  min_lead_time_hours: number | null;
+  max_lead_time_hours: number | null;
+  avg_lead_time_hours: number | null;
 }
 
 export interface ErrorByHorizonItem {
@@ -89,14 +89,14 @@ export interface DailyErrorItem {
   missing_hours: number;
   is_complete: boolean;
   daily_coverage_pct: number;
-  avg_forecast_mw: number;
-  avg_actual_mw: number;
-  daily_mae_mw: number;
-  daily_rmse_mw: number;
-  daily_bias_mw: number;
-  daily_max_abs_error_mw: number;
-  daily_energy_forecast_mwh: number;
-  daily_energy_actual_mwh: number;
+  avg_forecast_mw?: number | null;
+  avg_actual_mw?: number | null;
+  daily_mae_mw?: number | null;
+  daily_rmse_mw?: number | null;
+  daily_bias_mw?: number | null;
+  daily_max_abs_error_mw?: number | null;
+  daily_energy_forecast_mwh?: number | null;
+  daily_energy_actual_mwh?: number | null;
 }
 
 export interface FilterParams {

@@ -49,16 +49,16 @@ class MetricsResponse(BaseModel):
     missing_forecasts: int
     missing_actuals: int
     coverage_pct: float
-    mae_mw: float
-    rmse_mw: float
-    bias_mw: float
-    p50_abs_error_mw: float
-    p90_abs_error_mw: float
-    p99_abs_error_mw: float
-    max_abs_error_mw: float
-    min_lead_time_hours: float
-    max_lead_time_hours: float
-    avg_lead_time_hours: float
+    mae_mw: Optional[float] = None
+    rmse_mw: Optional[float] = None
+    bias_mw: Optional[float] = None
+    p50_abs_error_mw: Optional[float] = None
+    p90_abs_error_mw: Optional[float] = None
+    p99_abs_error_mw: Optional[float] = None
+    max_abs_error_mw: Optional[float] = None
+    min_lead_time_hours: Optional[float] = None
+    max_lead_time_hours: Optional[float] = None
+    avg_lead_time_hours: Optional[float] = None
 
 
 class ErrorByHorizonItem(BaseModel):
@@ -93,11 +93,11 @@ class DailyErrorItem(BaseModel):
     missing_hours: int = 0
     is_complete: bool = True
     daily_coverage_pct: float
-    avg_forecast_mw: float
-    avg_actual_mw: float
-    daily_mae_mw: float
-    daily_rmse_mw: float
-    daily_bias_mw: float
-    daily_max_abs_error_mw: float
-    daily_energy_forecast_mwh: float
-    daily_energy_actual_mwh: float
+    avg_forecast_mw: Optional[float] = None
+    avg_actual_mw: Optional[float] = None
+    daily_mae_mw: Optional[float] = None
+    daily_rmse_mw: Optional[float] = None
+    daily_bias_mw: Optional[float] = None
+    daily_max_abs_error_mw: Optional[float] = None
+    daily_energy_forecast_mwh: Optional[float] = None
+    daily_energy_actual_mwh: Optional[float] = None
