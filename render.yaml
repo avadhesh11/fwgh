@@ -21,6 +21,12 @@ services:
         value: "/app/data"
       - key: CORS_ORIGINS
         value: "https://gridbricks-frontend.onrender.com"
+      - key: KEEP_ALIVE_ENABLED
+        value: "true"
+      - key: KEEP_ALIVE_URL
+        value: "https://gridbricks-backend.onrender.com/api/health"
+      - key: KEEP_ALIVE_INTERVAL_SECONDS
+        value: "720"
 
   # ----------------------------------------------------------------------------
   # React + Nginx Frontend Service

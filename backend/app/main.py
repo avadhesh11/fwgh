@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,15 +8,28 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
 from app.api.endpoints import router as api_router
+from app.services.keep_alive import keep_alive_service
 
 logger = logging.getLogger("app")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application startup and shutdown lifecycles."""
+    if settings.KEEP_ALIVE_ENABLED:
+        keep_alive_service.start()
+    yield
+    if keep_alive_service.is_running:
+        await keep_alive_service.stop()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Backend API for Elexon BMRS Wind Generation Forecast vs Outturn Verification and Decision Portal.",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Exception handlers ensuring consistent JSON error responses
